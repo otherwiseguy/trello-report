@@ -4,7 +4,8 @@
 # Copyright (c) 2016 Ihar Hrachyshka <ihrachys@redhat.com>
 
 # This tool will produce a nice email friendly report from your Trello
-# 'Personal:Done' list contents
+# 'Personal:Done' list contents, and archive all the cards from the list to
+# give space for a next report.
 
 try:
     import configparser
@@ -185,6 +186,9 @@ def main():
         _print_label_header('Other')
         for card in cards:
             print card
+
+    # finally, archive all cards that we just reported on
+    l.archive_all_cards()
 
 
 if __name__ == '__main__':

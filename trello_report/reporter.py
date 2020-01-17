@@ -38,6 +38,7 @@ class CardData(object):
         # cache data to avoid later refetches
         self._comments = card.get_comments()
         self._attachments = card.get_attachments()
+        self._checklists = card.fetch_checklists()
 
     @property
     def name(self):
@@ -50,6 +51,8 @@ class CardData(object):
 
     @property
     def labels(self):
+        if not self._card.labels:
+            return []
         return [l.name for l in self._card.labels]
 
     @property
@@ -65,25 +68,51 @@ class CardData(object):
     def attachments(self):
         l = []
         for attachment in self._attachments:
-            l.append(attachment['url'])
+            l.append(attachment.url)
+        return l
+
+    @property
+    def checklists(self):
+        l = []  
+        for checklist in self._checklists:
+            d = {'name': checklist.name, 'items': []}
+            for n in checklist.items:
+                d['items'].append("%s %s" % ('[X]' if n['checked'] else '[ ]', n['name']))
+            l.append(d)
         return l
 
     def __str__(self):
-        res = '- '
+        res = '\n[*] '
         res += self.name
         if self.description:
-            res = '%(res)s (%(desc)s)' % {'res': res, 'desc': self.description}
-        attachments = self.attachments
-        if attachments:
-            for attachment in attachments:
-                res += '\n'
-                res += URL_INDENT
-                res += attachment
+            res = '%(res)s\n%(desc)s' % {'res': res, 'desc': self.description}
         comments = list(self.comments)
+
         if comments:
             for comment in comments:
                 res += '\n'
-                res += '\n'.join(comment_wrapper.wrap(comment))
+                res += comment
+                # res += '\n'.join(comment_wrapper.wrap(comment))
+        
+        for checklist in self.checklists:
+            res += '\n'
+            res += checklist['name']    
+            res += '\n'
+            for element in checklist['items']:
+                res += '\n'
+                res += COMMENT_INDENT
+                res += element
+
+        attachments = self.attachments
+        if attachments:
+            res += '\n'
+            counter = 0
+            for attachment in attachments:
+                res += '\n'
+                # res += URL_INDENT
+                res += '[%d] ' % counter
+                counter += 1
+                res += attachment.decode('utf-8')        
         res += '\n'
         return res
 
@@ -102,7 +131,7 @@ def get_board_labels(board):
     res = []
 
     # first, put high visible topics at the top
-    for label in ('OSP', 'Upstream errands', 'Neutron errands'):
+    for label in ('Customer cases / Escalations', 'Management', 'OVS/OVN'):
         if label in labels:
             res.append(label)
             labels.remove(label)
@@ -176,7 +205,7 @@ def main():
     api = trelloclient.TrelloClient(api_key=config_info['api_key'],
                                     token=config_info['access_token'])
 
-    b = get_board(api, 'Personal')
+    b = get_board(api, 'Daniel\'s tasks')
     assert b is not None
 
     in_progress_list = get_list(b, 'In progress')
@@ -208,7 +237,7 @@ def main():
                 print card
 
     # finally, archive all cards that we just reported on
-    done_list.archive_all_cards()
+    #done_list.archive_all_cards()
 
 
 if __name__ == '__main__':

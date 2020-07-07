@@ -15,25 +15,14 @@ except ImportError:
 import datetime
 import dateutil.parser
 import os
+from rstcloth import rstcloth
 import sys
-import textwrap
 
 import click
 from trello import trelloclient
 
 
 SKIP_LABEL = 'Skip-for-report'
-
-
-BASE_INDENT = '  '
-COMMENT_INDENT_INIT = BASE_INDENT + '- '
-COMMENT_INDENT = BASE_INDENT + '  '
-URL_INDENT = BASE_INDENT + '-> '
-
-base_wrapper = textwrap.TextWrapper(
-    initial_indent=BASE_INDENT, subsequent_indent=BASE_INDENT)
-comment_wrapper = textwrap.TextWrapper(
-    initial_indent=COMMENT_INDENT_INIT, subsequent_indent=COMMENT_INDENT)
 
 
 class CardData(object):
@@ -101,37 +90,27 @@ class CardData(object):
         return timestamp is None or self.date_last_activity > timestamp
 
     def __str__(self):
-        res = '[*] '
-        res += self.name
+        d = rstcloth.RstCloth()
+        d.h3(self.name)
+        d.newline()
         if self.description:
-            res += "\n" + "\n".join(base_wrapper.wrap(self.description))
+            d.content(self.description)
+            d.newline()
         comments = list(self.comments)
 
         if comments:
-            for comment in comments:
-                res += '\n'
-                res += '\n'.join(comment_wrapper.wrap(comment))
+            d.li(comments)
+            d.newline()
 
         for checklist in self.checklists:
-            res += '\n' + BASE_INDENT
-            res += checklist['name'] or "Checklist"
-            for element in checklist['items']:
-                res += '\n'
-                res += BASE_INDENT * 2
-                res += element
+            d.h4(checklist['name'] or 'Checklist')
+            d.li(checklist['items'])
+            d.newline()
 
-        attachments = self.attachments
-        if attachments:
-            res += '\n'
-            counter = 0
-            for attachment in attachments:
-                res += '\n'
-                res += URL_INDENT
-                res += '[%d] ' % counter
-                counter += 1
-                res += attachment
-        res += '\n'
-        return res
+        for attachment in self.attachments:
+            d.footnote('', attachment)
+
+        return "\n".join(d.data)
 
 
 def get_board(api, name):
@@ -188,20 +167,6 @@ def get_cards_by_label(cards, label):
     return {card for card in cards if label in card.labels}
 
 
-def _print_label_header(label):
-    print(label)
-    print('~' * len(label))
-    print()
-
-
-def _print_list_header(l):
-    name = l.name
-    print('=' * len(name))
-    print(name)
-    print('=' * len(name))
-    print()
-
-
 # copy-pasted from https://github.com/rbrady/filch/blob/master/filch/helpers.py
 def get_config_info():
     config_path = os.environ.get('TRELLO_REPORTER_CONFIG',
@@ -251,28 +216,36 @@ def main(days):
     labels = get_board_labels(b, top_labels, end_labels)
     since = (datetime.datetime.now(datetime.timezone.utc)
              - datetime.timedelta(days=days)) if days else None
+    d = rstcloth.RstCloth()
     for l in (in_progress_list, done_list):
-        _print_list_header(l)
+        d.h1(l.name)
+        d.newline()
         cards, not_updated = get_cards(l, updated_since=since)
         for label in labels:
             labeled_cards = get_cards_by_label(cards, label)
             if labeled_cards:
-                _print_label_header(label)
+                d.h2(label)
                 for card in labeled_cards:
-                    print(card)
+                    d.newline()
+                    d._add(str(card))
                     cards.remove(card)
+                d.newline()
 
         # handle remaining, unlabeled cards
         if cards:
-            _print_label_header('Other')
+            d.h2('Other')
             for card in cards:
-                print(card)
-
+                d.newline()
+                d._add(str(card))
+            d.newline()
         # special section for cards that haven't had updates this week
         if not_updated:
-            _print_label_header('Not updated')
+            d.h2("Not Updated")
             for card in not_updated:
-                print(card)
+                d.newline()
+                d._add(str(card))
+
+    d.print_content()
 
     # finally, archive all cards that we just reported on
     # done_list.archive_all_cards()

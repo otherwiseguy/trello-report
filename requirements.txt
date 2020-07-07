@@ -1,3 +1,4 @@
 click
 dateutil
 py-trello
+rstcloth

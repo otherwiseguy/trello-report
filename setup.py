@@ -33,7 +33,9 @@ setup(
     include_package_data=True,
     install_requires=[
         'click',
+        'dateutil',
         'py-trello',
+        'rstcloth',
     ],
     entry_points={
         'console_scripts': [

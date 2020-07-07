@@ -99,12 +99,15 @@ class CardData(object):
         comments = list(self.comments)
 
         if comments:
-            d.li(comments)
+            for comment in comments:
+                d.li([comment])  # work around rstcloth bug
             d.newline()
 
         for checklist in self.checklists:
             d.h4(checklist['name'] or 'Checklist')
-            d.li(checklist['items'])
+            for element in checklist['items']:
+                d.newline()
+                d.li([element])  # work around rstcloth bug
             d.newline()
 
         for attachment in self.attachments:

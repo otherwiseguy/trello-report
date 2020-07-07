@@ -196,7 +196,9 @@ def get_config_info():
 @click.command()
 @click.option('--days', type=int, default=None,
               help="Cards not updated in n days go in their own section")
-def main(days):
+@click.option('--skip-not-updated', default=False, is_flag=True,
+              help="Skip cards that haven't been updated in --days")
+def main(days, skip_not_updated):
     config_info = get_config_info()
     api = trelloclient.TrelloClient(api_key=config_info['api_key'],
                                     token=config_info['access_token'])
@@ -242,7 +244,7 @@ def main(days):
                 d._add(str(card))
             d.newline()
         # special section for cards that haven't had updates this week
-        if not_updated:
+        if not_updated and not skip_not_updated:
             d.h2("Not Updated")
             for card in not_updated:
                 d.newline()
